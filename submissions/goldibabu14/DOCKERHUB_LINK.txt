@@ -1,0 +1,13 @@
+DockerHub Image Link:
+====================
+
+🐳 https://hub.docker.com/r/goldibabu/flask-devops-app
+
+Instructions to pull the image:
+docker pull goldibabu/flask-devops-app:latest
+
+Instructions to run the image:
+docker run -d -p 5000:5000 goldibabu/flask-devops-app:latest
+
+Access the app:
+http://localhost:5000

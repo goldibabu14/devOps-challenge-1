@@ -1,0 +1,7 @@
+flask
+pytest
+celery
+flask_debugtoolbar
+flask_sqlalchemy
+flask_static_digest
+redis
