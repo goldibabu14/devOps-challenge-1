@@ -35,8 +35,8 @@ pipeline {
             steps {
                 echo 'Running tests...'
                 script {
-                    // Run tests inside a temporary container
-                    bat "docker run --rm ${DOCKER_IMAGE}:${IMAGE_TAG} sh -c \"pip install pytest pytest-cov && pytest test/ -v\""
+                    // Run tests inside a temporary container with required env vars
+                    bat "docker run --rm -e SECRET_KEY=test-secret-key -e DATABASE_URL=sqlite:///test.db ${DOCKER_IMAGE}:${IMAGE_TAG} sh -c \"pip install pytest pytest-cov && pytest test/ -v\""
                 }
             }
         }
