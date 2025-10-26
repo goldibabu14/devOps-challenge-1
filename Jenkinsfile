@@ -25,8 +25,8 @@ pipeline {
                 echo 'Building Docker image...'
                 script {
                     // Build the Docker image
-                    sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
-                    sh "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
+                    bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
+                    bat "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
                 }
             }
         }
@@ -36,10 +36,7 @@ pipeline {
                 echo 'Running tests...'
                 script {
                     // Run tests inside a temporary container
-                    sh """
-                        docker run --rm ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                        sh -c 'pip install pytest pytest-cov && pytest test/ -v'
-                    """
+                    bat "docker run --rm ${DOCKER_IMAGE}:${IMAGE_TAG} sh -c \"pip install pytest pytest-cov && pytest test/ -v\""
                 }
             }
         }
@@ -49,11 +46,11 @@ pipeline {
                 echo 'Pushing Docker image to DockerHub...'
                 script {
                     // Login to DockerHub
-                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                    bat "docker login -u %DOCKERHUB_CREDENTIALS_USR% -p %DOCKERHUB_CREDENTIALS_PSW%"
                     
                     // Push both tagged and latest version
-                    sh "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                    sh "docker push ${DOCKER_IMAGE}:latest"
+                    bat "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    bat "docker push ${DOCKER_IMAGE}:latest"
                 }
             }
         }
@@ -63,24 +60,17 @@ pipeline {
                 echo 'Deploying container locally...'
                 script {
                     // Stop and remove existing container if it exists
-                    sh """
-                        docker stop ${CONTAINER_NAME} || true
-                        docker rm ${CONTAINER_NAME} || true
-                    """
+                    bat "docker stop ${CONTAINER_NAME} || exit 0"
+                    bat "docker rm ${CONTAINER_NAME} || exit 0"
                     
                     // Run the new container
-                    sh """
-                        docker run -d \
-                        --name ${CONTAINER_NAME} \
-                        -p 5000:5000 \
-                        ${DOCKER_IMAGE}:${IMAGE_TAG}
-                    """
+                    bat "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${DOCKER_IMAGE}:${IMAGE_TAG}"
                     
                     // Wait a few seconds for the container to start
-                    sh 'sleep 5'
+                    bat "timeout /t 5 /nobreak"
                     
                     // Verify the container is running
-                    sh "docker ps | grep ${CONTAINER_NAME}"
+                    bat "docker ps | findstr ${CONTAINER_NAME}"
                 }
             }
         }
@@ -90,7 +80,7 @@ pipeline {
         always {
             echo 'Cleaning up...'
             // Logout from DockerHub
-            sh 'docker logout'
+            bat 'docker logout || exit 0'
         }
         success {
             echo 'Pipeline completed successfully!'
@@ -99,10 +89,8 @@ pipeline {
         failure {
             echo 'Pipeline failed!'
             // Clean up on failure
-            sh """
-                docker stop ${CONTAINER_NAME} || true
-                docker rm ${CONTAINER_NAME} || true
-            """
+            bat "docker stop ${CONTAINER_NAME} || exit 0"
+            bat "docker rm ${CONTAINER_NAME} || exit 0"
         }
     }
 }
