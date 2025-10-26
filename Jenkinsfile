@@ -64,14 +64,22 @@ pipeline {
                     bat "docker stop ${CONTAINER_NAME} || exit 0"
                     bat "docker rm ${CONTAINER_NAME} || exit 0"
                     
-                    // Run the new container
-                    bat "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                    
-                    // Wait a few seconds for the container to start
-                    bat "timeout /t 5 /nobreak"
-                    
-                    // Verify the container is running
-                    bat "docker ps | findstr ${CONTAINER_NAME}"
+                    // Run the new container and store the container ID
+                    bat """
+                        docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        
+                        REM Wait for container to be healthy (retry for 30 seconds)
+                        for /l %%i in (1,1,6) do (
+                            timeout /t 5 > nul
+                            docker ps --filter "name=${CONTAINER_NAME}" --format "{{.Status}}" | findstr "Up" > nul
+                            if not errorlevel 1 (
+                                echo Container is running successfully!
+                                exit 0
+                            )
+                        )
+                        echo Container failed to start properly
+                        exit 1
+                    """
                 }
             }
         }
@@ -80,18 +88,28 @@ pipeline {
     post {
         always {
             echo 'Cleaning up...'
-            // Logout from DockerHub
-            bat 'docker logout || exit 0'
+            script {
+                // Ensure we clean up regardless of outcome
+                bat "docker stop ${CONTAINER_NAME} || true"
+                bat "docker rm ${CONTAINER_NAME} || true"
+                // Logout from DockerHub
+                bat 'docker logout || true'
+            }
         }
         success {
-            echo 'Pipeline completed successfully!'
-            echo "Application deployed and running on http://localhost:5000"
+            echo '''Pipeline completed successfully!
+            
+Application is available at:
+- Local: http://localhost:5000
+- Inside container: http://container:5000
+
+You can now:
+1. Access the app in your browser at http://localhost:5000
+2. Use 'docker logs flask-app' to check container logs
+3. Use 'docker exec -it flask-app bash' to debug inside the container'''
         }
         failure {
-            echo 'Pipeline failed!'
-            // Clean up on failure
-            bat "docker stop ${CONTAINER_NAME} || exit 0"
-            bat "docker rm ${CONTAINER_NAME} || exit 0"
+            error 'Pipeline failed! Check the logs above for details.'
         }
     }
 }
